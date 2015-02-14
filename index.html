@@ -1,0 +1,460 @@
+<!doctype html>
+<html>
+<head>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge;chrome=1">
+	<meta charset="utf-8">
+	<title>Eris' Home Page</title>
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.0/themes/smoothness/jquery-ui.css" type="text/css" />
+	<style type="text/css">
+		html { height: 100%; }
+		body {
+			-moz-box-align: center;
+			-moz-box-orient: horizontal;
+			-moz-box-pack: center;
+			display: -moz-box;
+			height: 100%;
+			margin: 0;
+			width: 100%;
+		}
+		#AdminCommands {
+			position: absolute;
+			top: 5px;
+			right: 5px;
+		}
+		#LinkWrap { 
+			text-align: center;
+			width: 80%;
+		}
+		.link {
+			display: inline-block;
+			height: 200px;
+			margin: auto;
+			overflow: hidden;
+			padding: 10px;
+			width: 200px;
+		}
+		.link a {
+			display: inline-block;
+			margin: auto;
+			text-decoration: none;
+		}
+		.link a img {
+		}
+		.tag {
+			background-color: #999999;
+			border-radius: 7px 7px 0 0;
+			color: white;
+			font-size: 14px;
+			height: 20px;
+			opacity: 0.8;
+			position: relative;
+			text-shadow: 1px 1px 3px black;
+			top: -24px;
+			width: 200px;
+		}
+		#LinkAdd {
+			border: 3px solid gray;
+			font-size: 70pt;
+			border-radius: 15px;
+		}
+		#LinkAdd a {
+			display: block;
+			width: 200px;
+			height: 155px;
+			padding-top: 45px;
+			color: grey;
+		}
+		#ImportCode {
+			width: 100%;
+			height: 250px;
+			font-size: small;
+		}
+		.linkAdmin {
+			position: absolute;
+			width: 200px;
+		}
+		.edit {
+			float: left;
+			border: 2px solid black;
+			border-radius: 10px;
+			display: inline-block;
+		}
+		.delete {
+			float: right;
+			border: 2px solid black;
+			border-radius: 10px;
+			display: inline-block;
+		}
+		.mover {
+			display: inline-block;
+			border-radius: 10px;
+			border: 2px solid black;
+			height: 5px;
+			width: 100px;
+			cursor: move;
+		}
+		#delLink { font-style: italic; }
+	</style>
+</head>
+<body>
+
+<!-- Admin Command Bar -->
+<div id="AdminCommands" class="admin" style="display: none;">
+	<button id="btnImport">Import</button>
+	<button id="btnExport">Export</button>
+	<button id="btnSettings">Settings</button>
+	<button id="btnExit">Exit Admin Mode</button>
+</div>
+
+<!-- Blank cell for populating later on -->
+<div id="EmptyCell" style="display: none;">
+	<div class="link" data-title="~TITLE~" data-link="~LINK~" data-filename="~FILENAME~">
+		<div class="admin linkAdmin" style="display: none;">
+			<div class="edit" title="Edit this link."><span class="ui-icon ui-icon-pencil"></span></div>
+			<div class="mover" title="Reposition this link.">&nbsp;</div>
+			<div class="delete" title="Delete this link."><span class="ui-icon ui-icon-circle-close"></span></div>
+		</div>
+		<a href="~LINK~"><img src="~FILENAME~" width="200" height="200" alt="~TITLE~"></a>
+		<div class="tag" style="display: none;">~TITLE~</div>
+	</div>
+</div>
+
+<!-- Add a Link Dialog -->
+<div id="dlgAddLink" style="display: none;">
+	<form id="frmAddLink">
+		<table>
+			<tr>
+				<td>Name:</td>
+				<td><input type"text" name="TITLE" id="TITLE" value="" style="width: 400px"></td>
+			</tr>
+			<tr>
+				<td>Link:</td>
+				<td><input type"text" name="LINK" id="LINK" value="" style="width: 400px"></td>
+			</tr>
+			<tr>
+				<td>Image:</td>
+				<td><input type"text" name="FILENAME" id="FILENAME" value="" style="width: 400px"></td>
+			</tr>
+		</table>
+	</form>
+</div>
+
+<!-- Admin Settings Dialog -->
+<div id="dlgSettings" style="display: none;">
+	<form id="frmSettings">
+		<table>
+			<tr>
+				<td>Columns:</td>
+				<td><input type="number" name="cols" id="cols" value=""></td>
+			</tr>
+		</table>
+	</form>
+</div>
+
+<!-- Import/Export Dialog -->
+<div id="dlgImport" style="display: none;">
+	<form id="frmImport">
+		<span id="ImportText">Instructions will go here.</span><br>
+		<textarea id="ImportCode"></textarea>
+	</form>
+</div>
+
+<!-- Delete confirm dialog -->
+<div id="dlgDelete" style="display: none;">
+	Are you absolutely sure you wish to delete the link: <span id="delLink"></span>?
+</div>
+
+<!-- Link Cell container -->
+<div id="LinkWrap">
+	<div class="link admin" id="LinkAdd" style="display: none;">
+		<a href="#">+</a>
+		<div class="tag" style="display: none;">Add a New Link</div>
+	</div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" type="text/javascript"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.0/jquery-ui.min.js" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/json2/20140204/json2.min.js" type="text/javascript"></script>
+<script type="text/javascript"><!--//--><![CDATA[//><!-- 
+	var ls = localStorage,
+		ec = "",			// ec = empty cell
+		settings = {},		// global settings object
+		links = [],			// global links array
+		adminMode = false,	// global flag denoting if Admin Mode is active or not
+		$link = {};			// global container for editing a link object
+	
+	$(document).ready(function() {
+		// Make sure our localStorage structure exists
+		if(typeof(ls.links) != "string")		ls.links = '[]';
+		links = JSON.parse(ls.links);
+		if(typeof(ls.settings) != "string")		ls.settings = '{"cols":"3"}';
+		settings = JSON.parse(ls.settings);
+		if(typeof(settings.cols) != "string")	SetSetting("cols", "3");
+		
+		// apply settings
+		ApplySettings();
+		
+		// set the empty cell value
+		ec = $("#EmptyCell").html();
+		
+		// initialize the slide effect for all links
+		$("#LinkWrap")
+		.on("mouseenter", ".link, .tag", function(e) {
+			$(this).find(".tag").show("slide", { direction: "down" });
+		})
+		.on("mouseleave", ".link, .tag", function(e) {
+			$(this).find(".tag").hide("slide", { direction: "down" });
+		})
+		// Initialize the link edit button functionality
+		.on("click", ".edit", function(e) {
+			$link = $(this).parent().parent();
+			
+			$("#TITLE").val($link.data("title"));
+			$("#LINK").val($link.data("link"));
+			$("#FILENAME").val($link.data("filename"));
+			
+			// open the Add/Edit dialog in Edit mode
+			$("#dlgAddLink").dialog("option", "title", "Edit a Link").data("act", "edit").dialog("open");
+		})
+		// Initialize the link delete button functionality
+		.on("click", ".delete", function() {
+			$link = $(this).parent().parent();
+			$("#delLink").html($link.data("title"));
+			$("#dlgDelete").dialog("open");
+		});
+		
+		// Make preparations to activate Admin Mode when the user presses "$"
+		$(this).on("keypress", function(e) {
+			if(e.key == "$" && !adminMode) {
+				<!-- Start the Admin mode -->
+				adminMode = true;
+				AdminMode();
+			}
+		});
+		
+		// initialize Exit Admin Mode button functionality
+		$("#btnExit").on("click", function() {
+			adminMode = false;
+			AdminMode();
+		});
+		
+		// Initialize the Add/Edit Link dialog
+		$("#dlgAddLink").dialog({
+			title: "Add a Link",
+			autoOpen: false,
+			width: 520,
+			modal: true,
+			resizable: false,
+			buttons: [
+				{
+					text: "Apply",
+					click: function() {
+						switch($(this).data("act")) {
+							case "add":
+								var data = {
+									TITLE: $("#TITLE").val(),
+									LINK: $("#LINK").val(),
+									FILENAME: $("#FILENAME").val()
+								};
+								links.push(data);
+								ls.links = JSON.stringify(links);
+								InsertLink(data);
+								break;
+							
+							case "edit":
+								var title = $("#TITLE").val();
+								var link = $("#LINK").val();
+								var filename = $("#FILENAME").val();
+								$link
+									.data("title", title)
+									.data("link", link)
+									.data("filename", filename)
+									.find("a").prop("href", link);
+								$link.find("img").prop("src", filename).prop("alt", title);
+								$link.find(".tag").html(title);
+								SaveLinks();
+								break;
+							
+							default:
+								break;
+						}
+						$(this).dialog("close");
+					}
+				},
+				{
+					text: "Cancel",
+					click: function() { $(this).dialog("close"); }
+				}
+			]
+		});
+
+		// initialize Add Link button functionality
+		$("#LinkAdd").on("click", function() {
+			$("#TITLE").val("");
+			$("#LINK").val("");
+			$("#FILENAME").val("images/");
+			
+			// open the Add/Edit dialog in Add mode
+			$("#dlgAddLink").dialog("option", "title", "Add a Link").data("act", "add").dialog("open");
+		});
+		
+		// Initialize the Import/Export Admin Dialog
+		$("#dlgImport").dialog({
+			title: "Settings Import/Export",
+			autoOpen: false,
+			width: 520,
+			modal: true,
+			resizable: false,
+			buttons: [
+				{
+					id: "btnDlgImport",
+					text: "Import",
+					click: function() {
+						var data = JSON.parse($("#ImportCode").val());
+						
+						ls.links = data.links;
+						ls.settings = data.settings;
+						
+						window.location.reload();					// Just reload the page, it makes applying all settings easier
+					}
+				},
+				{
+					text: "Cancel",
+					click: function() { $(this).dialog("close"); }
+				}
+			]
+		});
+		
+		// Initialize the Import button functionality
+		$("#btnImport").on("click", function() {
+			$("#ImportCode").val("");
+			$("#ImportText").html("Paste the code to import into the box below then click the <i>Import</i> button.  <b>NOTE:</b> This will overwrite all current settings.");
+			$("#btnDlgImport").show();
+			$("#dlgImport").dialog("open");
+		});
+		
+		// Initialize the Export button functionality
+		$("#btnExport").on("click", function() {
+			$("#ImportCode").val(JSON.stringify(ls));
+			$("#ImportText").html("Copy the following code and paste it into a text file for safe keeping.");
+			$("#btnDlgImport").hide();
+			$("#dlgImport").dialog("open");
+		});
+		
+		// Initialize the Settings dialog
+		$("#dlgSettings").dialog({
+			title: "Change Admin Settings",
+			autoOpen: false,
+			width: 400,
+			modal: true,
+			resizable: false,
+			buttons: [
+				{
+					text: "Apply",
+					click: function() {
+						SetSetting("cols", $("#cols").val());
+						ApplySettings();
+						$(this).dialog("close");
+					}
+				},
+				{
+					text: "Cancel",
+					click: function() { $(this).dialog("close"); }
+				}
+			]
+		});
+		
+		// Initialize the settings button functionality
+		$("#btnSettings").on("click", function() {
+			$("#cols").val(settings.cols);
+			$("#dlgSettings").dialog("open");
+		});
+		
+		// Initialize the delete dialog functionality
+		$("#dlgDelete").dialog({
+			title: "Delete Link?",
+			width: 500,
+			autoOpen: false,
+			modal: true,
+			resizable: false,
+			buttons: [
+				{
+					text: "Delete",
+					click: function() {
+						$link.fadeOut().detach();
+						SaveLinks();
+						$(this).dialog("close");
+					}
+				},
+				{
+					text: "Cancel",
+					click: function() { $(this).dialog("close"); }
+				}
+			]
+		});
+		
+		// Load any previously created links
+		for(i=0; i < links.length; i++) {
+			InsertLink(links[i]);
+		}
+	});
+	
+	function AdminMode() {
+		if(adminMode) {
+			// open admin mode
+			$(".admin").fadeIn();
+			$("#LinkWrap").sortable({
+				handle: ".mover",
+				update: function(e, ui) {
+					SaveLinks();
+					ui.item.trigger("mouseenter");
+				}
+			});
+		} else {
+			// close admin mode
+			$(".admin").fadeOut();
+			$("#LinkWrap").sortable("destroy");
+		}
+	}
+	
+	function InsertLink(data) {
+		var cell = ec;	// copy the empty cell information
+		
+		for(idx in data) {
+			cell = cell.replace(new RegExp("~" + idx + "~", "g"), data[idx]);
+		}
+		$("#LinkAdd").before(cell);
+		
+		if(adminMode) $("#LinkWrap .link:not(#LinkAdd):last").find(".admin").show();
+	}
+	
+	function SetSetting(k, v) {
+		settings[k] = v;
+		ls.settings = JSON.stringify(settings);
+	}
+	
+	function ApplySettings() {
+		// apply width setting
+		$("#LinkWrap").css("width", (settings.cols * 225) + "px");
+	}
+	
+	function SaveLinks() {
+		var newLinks = [];
+		
+		// save all the link data into a new array
+		$("#LinkWrap .link:not(#LinkAdd)").each(function() {
+			var $this = $(this),
+				data = {
+				TITLE: $this.data("title"),
+				LINK: $this.data("link"),
+				FILENAME: $this.data("filename")
+			};
+			newLinks.push(data);
+		});
+		
+		links = newLinks;
+		ls.links = JSON.stringify(newLinks);
+	}
+//--><!]]></script>
+</body>
+</html>
